@@ -1,0 +1,36 @@
+syntax = "proto3";
+package github.com.JuanJoseLL.integrales;
+option go_package = "github.com/JuanJoseLL/distributed_integrals/rpc/integrales";
+
+// Master service provides tasks to workers and receives their computation results.
+service Master {
+  // RegisterWorker is called by workers to fetch a new task.
+  rpc RegisterWorker(WorkerInfo) returns (Task);
+
+  // SubmitResult is called by workers to submit the results of their computations.
+  rpc SubmitResult(IntegralResult) returns (Acknowledgment);
+}
+
+// WorkerInfo may include information about the worker, such as its capabilities or identifier.
+message WorkerInfo {
+  string worker_id = 1; // Optional worker identifier
+}
+
+// Task represents a single task assigned to a worker.
+message Task {
+  double lower_bound = 1; // the lower bound of the subrange to integrate over
+  double upper_bound = 2; // the upper bound of the subrange to integrate over
+  int32 num_intervals = 3; // the number of intervals to use for the Riemann sum
+  string function = 4; // the function to integrate, represented as a string
+}
+
+// IntegralResponse is the result from computing a part of the integral.
+message IntegralResult {
+  string worker_id = 1; // Optional worker identifier to track which worker did the calculation
+  double result = 2; // the result of the integral calculation
+}
+
+// Acknowledgment is sent by the master to confirm receipt of the results.
+message Acknowledgment {
+  bool received = 1; // Indicates whether the master received the result
+}

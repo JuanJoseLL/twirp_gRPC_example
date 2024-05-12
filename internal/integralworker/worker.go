@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"net/http"
 	"time"
 
@@ -35,13 +36,60 @@ func main() {
 	}
 }
 
+var customFunctions = map[string]govaluate.ExpressionFunction{
+  "exp": func(args ...interface{}) (interface{}, error) {
+      if len(args) != 1 {
+          return nil, fmt.Errorf("exp() expects exactly one argument")
+      }
+      switch arg := args[0].(type) {
+      case float64:
+          return math.Exp(arg), nil
+      default:
+          return nil, fmt.Errorf("exp() expects a numerical argument")
+      }
+  },
+  "sin": func(args ...interface{}) (interface{}, error) {
+      if len(args) != 1 {
+          return nil, fmt.Errorf("sin() expects exactly one argument")
+      }
+      switch arg := args[0].(type) {
+      case float64:
+          return math.Sin(arg), nil
+      default:
+          return nil, fmt.Errorf("sin() expects a numerical argument")
+      }
+  },
+  "cos": func(args ...interface{}) (interface{}, error) {
+      if len(args) != 1 {
+          return nil, fmt.Errorf("cos() expects exactly one argument")
+      }
+      switch arg := args[0].(type) {
+      case float64:
+          return math.Cos(arg), nil
+      default:
+          return nil, fmt.Errorf("cos() expects a numerical argument")
+      }
+  },
+  "tanh": func(args ...interface{}) (interface{}, error) {
+      if len(args) != 1 {
+          return nil, fmt.Errorf("tanh() expects exactly one argument")
+      }
+      switch arg := args[0].(type) {
+      case float64:
+          return math.Tanh(arg), nil
+      default:
+          return nil, fmt.Errorf("tanh() expects a numerical argument")
+      }
+  },
+}
+
 func calculateIntegral(task *integrales.Task) float64 {
 	a := task.LowerBound     // lower bound of the integral
 	b := task.UpperBound     // upper bound of the integral
 	n := int(task.NumIntervals) // number of intervals
 	function := task.Function // the function to integrate, represented as a string
 
-  expression, err := govaluate.NewEvaluableExpression(function)
+  expression, err := govaluate.NewEvaluableExpressionWithFunctions(function, customFunctions)
   if err != nil {
 		log.Fatalf("Error creating expression: %v", err)
 	}

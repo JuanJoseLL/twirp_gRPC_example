@@ -34,10 +34,12 @@ const _ = twirp.TwirpPackageMinVersion_8_1_0
 // Master service provides tasks to workers and receives their computation results.
 type Master interface {
 	// RegisterWorker is called by workers to fetch a new task.
-	RegisterWorker(context.Context, *WorkerInfo) (*Task, error)
+	RegisterWorker(context.Context, *WorkerInfo) (*Acknowledgment, error)
 
 	// SubmitResult is called by workers to submit the results of their computations.
 	SubmitResult(context.Context, *IntegralResult) (*Acknowledgment, error)
+
+	GetTask(context.Context, *WorkerInfo) (*Task, error)
 }
 
 // ======================
@@ -46,7 +48,7 @@ type Master interface {
 
 type masterProtobufClient struct {
 	client      HTTPClient
-	urls        [2]string
+	urls        [3]string
 	interceptor twirp.Interceptor
 	opts        twirp.ClientOptions
 }
@@ -74,9 +76,10 @@ func NewMasterProtobufClient(baseURL string, client HTTPClient, opts ...twirp.Cl
 	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
 	serviceURL := sanitizeBaseURL(baseURL)
 	serviceURL += baseServicePath(pathPrefix, "github.com.JuanJoseLL.integrales", "Master")
-	urls := [2]string{
+	urls := [3]string{
 		serviceURL + "RegisterWorker",
 		serviceURL + "SubmitResult",
+		serviceURL + "GetTask",
 	}
 
 	return &masterProtobufClient{
@@ -87,13 +90,13 @@ func NewMasterProtobufClient(baseURL string, client HTTPClient, opts ...twirp.Cl
 	}
 }
 
-func (c *masterProtobufClient) RegisterWorker(ctx context.Context, in *WorkerInfo) (*Task, error) {
+func (c *masterProtobufClient) RegisterWorker(ctx context.Context, in *WorkerInfo) (*Acknowledgment, error) {
 	ctx = ctxsetters.WithPackageName(ctx, "github.com.JuanJoseLL.integrales")
 	ctx = ctxsetters.WithServiceName(ctx, "Master")
 	ctx = ctxsetters.WithMethodName(ctx, "RegisterWorker")
 	caller := c.callRegisterWorker
 	if c.interceptor != nil {
-		caller = func(ctx context.Context, req *WorkerInfo) (*Task, error) {
+		caller = func(ctx context.Context, req *WorkerInfo) (*Acknowledgment, error) {
 			resp, err := c.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
 					typedReq, ok := req.(*WorkerInfo)
@@ -104,9 +107,9 @@ func (c *masterProtobufClient) RegisterWorker(ctx context.Context, in *WorkerInf
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*Task)
+				typedResp, ok := resp.(*Acknowledgment)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*Task) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*Acknowledgment) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -116,8 +119,8 @@ func (c *masterProtobufClient) RegisterWorker(ctx context.Context, in *WorkerInf
 	return caller(ctx, in)
 }
 
-func (c *masterProtobufClient) callRegisterWorker(ctx context.Context, in *WorkerInfo) (*Task, error) {
-	out := new(Task)
+func (c *masterProtobufClient) callRegisterWorker(ctx context.Context, in *WorkerInfo) (*Acknowledgment, error) {
+	out := new(Acknowledgment)
 	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
@@ -179,13 +182,59 @@ func (c *masterProtobufClient) callSubmitResult(ctx context.Context, in *Integra
 	return out, nil
 }
 
+func (c *masterProtobufClient) GetTask(ctx context.Context, in *WorkerInfo) (*Task, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "github.com.JuanJoseLL.integrales")
+	ctx = ctxsetters.WithServiceName(ctx, "Master")
+	ctx = ctxsetters.WithMethodName(ctx, "GetTask")
+	caller := c.callGetTask
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *WorkerInfo) (*Task, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*WorkerInfo)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*WorkerInfo) when calling interceptor")
+					}
+					return c.callGetTask(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*Task)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*Task) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *masterProtobufClient) callGetTask(ctx context.Context, in *WorkerInfo) (*Task, error) {
+	out := new(Task)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
 // ==================
 // Master JSON Client
 // ==================
 
 type masterJSONClient struct {
 	client      HTTPClient
-	urls        [2]string
+	urls        [3]string
 	interceptor twirp.Interceptor
 	opts        twirp.ClientOptions
 }
@@ -213,9 +262,10 @@ func NewMasterJSONClient(baseURL string, client HTTPClient, opts ...twirp.Client
 	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
 	serviceURL := sanitizeBaseURL(baseURL)
 	serviceURL += baseServicePath(pathPrefix, "github.com.JuanJoseLL.integrales", "Master")
-	urls := [2]string{
+	urls := [3]string{
 		serviceURL + "RegisterWorker",
 		serviceURL + "SubmitResult",
+		serviceURL + "GetTask",
 	}
 
 	return &masterJSONClient{
@@ -226,13 +276,13 @@ func NewMasterJSONClient(baseURL string, client HTTPClient, opts ...twirp.Client
 	}
 }
 
-func (c *masterJSONClient) RegisterWorker(ctx context.Context, in *WorkerInfo) (*Task, error) {
+func (c *masterJSONClient) RegisterWorker(ctx context.Context, in *WorkerInfo) (*Acknowledgment, error) {
 	ctx = ctxsetters.WithPackageName(ctx, "github.com.JuanJoseLL.integrales")
 	ctx = ctxsetters.WithServiceName(ctx, "Master")
 	ctx = ctxsetters.WithMethodName(ctx, "RegisterWorker")
 	caller := c.callRegisterWorker
 	if c.interceptor != nil {
-		caller = func(ctx context.Context, req *WorkerInfo) (*Task, error) {
+		caller = func(ctx context.Context, req *WorkerInfo) (*Acknowledgment, error) {
 			resp, err := c.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
 					typedReq, ok := req.(*WorkerInfo)
@@ -243,9 +293,9 @@ func (c *masterJSONClient) RegisterWorker(ctx context.Context, in *WorkerInfo) (
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*Task)
+				typedResp, ok := resp.(*Acknowledgment)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*Task) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*Acknowledgment) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -255,8 +305,8 @@ func (c *masterJSONClient) RegisterWorker(ctx context.Context, in *WorkerInfo) (
 	return caller(ctx, in)
 }
 
-func (c *masterJSONClient) callRegisterWorker(ctx context.Context, in *WorkerInfo) (*Task, error) {
-	out := new(Task)
+func (c *masterJSONClient) callRegisterWorker(ctx context.Context, in *WorkerInfo) (*Acknowledgment, error) {
+	out := new(Acknowledgment)
 	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
@@ -304,6 +354,52 @@ func (c *masterJSONClient) SubmitResult(ctx context.Context, in *IntegralResult)
 func (c *masterJSONClient) callSubmitResult(ctx context.Context, in *IntegralResult) (*Acknowledgment, error) {
 	out := new(Acknowledgment)
 	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *masterJSONClient) GetTask(ctx context.Context, in *WorkerInfo) (*Task, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "github.com.JuanJoseLL.integrales")
+	ctx = ctxsetters.WithServiceName(ctx, "Master")
+	ctx = ctxsetters.WithMethodName(ctx, "GetTask")
+	caller := c.callGetTask
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *WorkerInfo) (*Task, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*WorkerInfo)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*WorkerInfo) when calling interceptor")
+					}
+					return c.callGetTask(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*Task)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*Task) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *masterJSONClient) callGetTask(ctx context.Context, in *WorkerInfo) (*Task, error) {
+	out := new(Task)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -421,6 +517,9 @@ func (s *masterServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	case "SubmitResult":
 		s.serveSubmitResult(ctx, resp, req)
 		return
+	case "GetTask":
+		s.serveGetTask(ctx, resp, req)
+		return
 	default:
 		msg := fmt.Sprintf("no handler for path %q", req.URL.Path)
 		s.writeError(ctx, resp, badRouteError(msg, req.Method, req.URL.Path))
@@ -470,7 +569,7 @@ func (s *masterServer) serveRegisterWorkerJSON(ctx context.Context, resp http.Re
 
 	handler := s.Master.RegisterWorker
 	if s.interceptor != nil {
-		handler = func(ctx context.Context, req *WorkerInfo) (*Task, error) {
+		handler = func(ctx context.Context, req *WorkerInfo) (*Acknowledgment, error) {
 			resp, err := s.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
 					typedReq, ok := req.(*WorkerInfo)
@@ -481,9 +580,9 @@ func (s *masterServer) serveRegisterWorkerJSON(ctx context.Context, resp http.Re
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*Task)
+				typedResp, ok := resp.(*Acknowledgment)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*Task) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*Acknowledgment) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -492,7 +591,7 @@ func (s *masterServer) serveRegisterWorkerJSON(ctx context.Context, resp http.Re
 	}
 
 	// Call service method
-	var respContent *Task
+	var respContent *Acknowledgment
 	func() {
 		defer ensurePanicResponses(ctx, resp, s.hooks)
 		respContent, err = handler(ctx, reqContent)
@@ -503,7 +602,7 @@ func (s *masterServer) serveRegisterWorkerJSON(ctx context.Context, resp http.Re
 		return
 	}
 	if respContent == nil {
-		s.writeError(ctx, resp, twirp.InternalError("received a nil *Task and nil error while calling RegisterWorker. nil responses are not supported"))
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *Acknowledgment and nil error while calling RegisterWorker. nil responses are not supported"))
 		return
 	}
 
@@ -551,7 +650,7 @@ func (s *masterServer) serveRegisterWorkerProtobuf(ctx context.Context, resp htt
 
 	handler := s.Master.RegisterWorker
 	if s.interceptor != nil {
-		handler = func(ctx context.Context, req *WorkerInfo) (*Task, error) {
+		handler = func(ctx context.Context, req *WorkerInfo) (*Acknowledgment, error) {
 			resp, err := s.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
 					typedReq, ok := req.(*WorkerInfo)
@@ -562,9 +661,9 @@ func (s *masterServer) serveRegisterWorkerProtobuf(ctx context.Context, resp htt
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*Task)
+				typedResp, ok := resp.(*Acknowledgment)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*Task) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*Acknowledgment) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -573,7 +672,7 @@ func (s *masterServer) serveRegisterWorkerProtobuf(ctx context.Context, resp htt
 	}
 
 	// Call service method
-	var respContent *Task
+	var respContent *Acknowledgment
 	func() {
 		defer ensurePanicResponses(ctx, resp, s.hooks)
 		respContent, err = handler(ctx, reqContent)
@@ -584,7 +683,7 @@ func (s *masterServer) serveRegisterWorkerProtobuf(ctx context.Context, resp htt
 		return
 	}
 	if respContent == nil {
-		s.writeError(ctx, resp, twirp.InternalError("received a nil *Task and nil error while calling RegisterWorker. nil responses are not supported"))
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *Acknowledgment and nil error while calling RegisterWorker. nil responses are not supported"))
 		return
 	}
 
@@ -765,6 +864,186 @@ func (s *masterServer) serveSubmitResultProtobuf(ctx context.Context, resp http.
 	}
 	if respContent == nil {
 		s.writeError(ctx, resp, twirp.InternalError("received a nil *Acknowledgment and nil error while calling SubmitResult. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *masterServer) serveGetTask(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveGetTaskJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveGetTaskProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *masterServer) serveGetTaskJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetTask")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(WorkerInfo)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Master.GetTask
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *WorkerInfo) (*Task, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*WorkerInfo)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*WorkerInfo) when calling interceptor")
+					}
+					return s.Master.GetTask(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*Task)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*Task) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *Task
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *Task and nil error while calling GetTask. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *masterServer) serveGetTaskProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetTask")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(WorkerInfo)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Master.GetTask
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *WorkerInfo) (*Task, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*WorkerInfo)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*WorkerInfo) when calling interceptor")
+					}
+					return s.Master.GetTask(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*Task)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*Task) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *Task
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *Task and nil error while calling GetTask. nil responses are not supported"))
 		return
 	}
 
@@ -1369,27 +1648,28 @@ func callClientError(ctx context.Context, h *twirp.ClientHooks, err twirp.Error)
 }
 
 var twirpFileDescriptor0 = []byte{
-	// 343 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x92, 0xcd, 0x4a, 0xc3, 0x40,
-	0x1c, 0xc4, 0x89, 0xd6, 0xd2, 0xfe, 0xad, 0x3d, 0xec, 0x41, 0x4a, 0x15, 0x2c, 0x11, 0xa4, 0x42,
-	0x49, 0x44, 0x6f, 0xe2, 0xc5, 0x82, 0x87, 0x94, 0x7a, 0x89, 0x82, 0xe0, 0x25, 0xe4, 0xe3, 0xdf,
-	0xb8, 0x34, 0xd9, 0x0d, 0xfb, 0xd1, 0x3e, 0x83, 0xef, 0xe9, 0x83, 0x48, 0xb2, 0x69, 0x43, 0x2f,
-	0xc6, 0x5b, 0x66, 0xf8, 0x4d, 0x76, 0x76, 0x58, 0xb8, 0x14, 0x45, 0xec, 0x52, 0xa6, 0x30, 0x15,
-	0x61, 0x86, 0xd2, 0x95, 0x28, 0x36, 0x34, 0x46, 0xa7, 0x10, 0x5c, 0x71, 0x32, 0x49, 0xa9, 0xfa,
-	0xd2, 0x91, 0x13, 0xf3, 0xdc, 0x59, 0xe8, 0x90, 0x2d, 0xb8, 0xc4, 0xe5, 0xd2, 0x69, 0x78, 0xfb,
-	0x16, 0xe0, 0x83, 0x8b, 0x35, 0x0a, 0x8f, 0xad, 0x38, 0xb9, 0x80, 0xfe, 0xb6, 0x52, 0x01, 0x4d,
-	0x46, 0xd6, 0xc4, 0x9a, 0xf6, 0xfd, 0x9e, 0x31, 0xbc, 0xc4, 0xfe, 0xb6, 0xa0, 0xf3, 0x1e, 0xca,
-	0x35, 0xb9, 0x82, 0xd3, 0x8c, 0x6f, 0x51, 0x04, 0x11, 0xd7, 0xcc, 0x70, 0x96, 0x0f, 0x95, 0x35,
-	0x2f, 0x9d, 0x12, 0xd0, 0x45, 0xb1, 0x07, 0x8e, 0x0c, 0x50, 0x59, 0x06, 0xb8, 0x86, 0x33, 0xa6,
-	0xf3, 0xa0, 0xec, 0x21, 0x36, 0x61, 0x26, 0x47, 0xc7, 0x13, 0x6b, 0x7a, 0xe2, 0x0f, 0x98, 0xce,
-	0xbd, 0x9d, 0x47, 0xc6, 0xd0, 0x5b, 0x69, 0x16, 0x2b, 0xca, 0xd9, 0xa8, 0x63, 0xba, 0xec, 0xb4,
-	0xfd, 0x02, 0x43, 0xaf, 0xbe, 0x84, 0x8f, 0x52, 0x67, 0xea, 0xcf, 0xea, 0xe4, 0x1c, 0xba, 0xa2,
-	0xc2, 0xea, 0x2e, 0xb5, 0xb2, 0x67, 0x30, 0x7c, 0x8e, 0xd7, 0x8c, 0x6f, 0x33, 0x4c, 0xd2, 0x1c,
-	0x99, 0x2a, 0x0f, 0x15, 0x18, 0x23, 0xdd, 0xa0, 0xf9, 0x4b, 0xcf, 0xdf, 0xeb, 0xfb, 0x1f, 0x0b,
-	0xba, 0xaf, 0xa1, 0x54, 0x28, 0xc8, 0x0a, 0x86, 0x3e, 0xa6, 0xb4, 0xfc, 0x36, 0xf3, 0x91, 0x99,
-	0xd3, 0xb6, 0xb5, 0xd3, 0x0c, 0x3d, 0xbe, 0x69, 0xa7, 0xab, 0xa9, 0x05, 0x0c, 0xde, 0x74, 0x94,
-	0x53, 0x55, 0xdf, 0xf2, 0xae, 0x3d, 0x77, 0xb8, 0xcb, 0xf8, 0x1f, 0x89, 0xc3, 0x09, 0xe6, 0x4f,
-	0x9f, 0x8f, 0x4d, 0xc4, 0x6d, 0x22, 0x6e, 0x42, 0xa5, 0x12, 0x34, 0xd2, 0x0a, 0x93, 0x60, 0x17,
-	0x97, 0xee, 0xe1, 0x03, 0x8c, 0xba, 0xd5, 0xcb, 0x7b, 0xf8, 0x0d, 0x00, 0x00, 0xff, 0xff, 0xed,
-	0xed, 0x46, 0xc3, 0x99, 0x02, 0x00, 0x00,
+	// 356 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x92, 0xcd, 0x4a, 0xc3, 0x40,
+	0x14, 0x85, 0x49, 0xad, 0xb5, 0xbd, 0xd6, 0x2e, 0xb2, 0x90, 0x52, 0x05, 0x4b, 0x04, 0xa9, 0x50,
+	0x12, 0xd1, 0x9d, 0xb8, 0xb1, 0x20, 0x92, 0x52, 0x37, 0x51, 0x10, 0xdc, 0x84, 0xfc, 0xdc, 0xc6,
+	0xa1, 0xc9, 0x4c, 0x98, 0x9f, 0xf6, 0x19, 0x7c, 0x3a, 0x5f, 0x49, 0x92, 0x49, 0x1b, 0xea, 0xc2,
+	0xaa, 0xbb, 0x9c, 0xc3, 0x97, 0x3b, 0xe7, 0x9e, 0x19, 0x38, 0xe5, 0x79, 0xe4, 0x10, 0x2a, 0x31,
+	0xe1, 0x41, 0x8a, 0xc2, 0x11, 0xc8, 0x97, 0x24, 0x42, 0x3b, 0xe7, 0x4c, 0x32, 0x73, 0x98, 0x10,
+	0xf9, 0xae, 0x42, 0x3b, 0x62, 0x99, 0x3d, 0x55, 0x01, 0x9d, 0x32, 0x81, 0xb3, 0x99, 0x5d, 0xf3,
+	0xd6, 0x25, 0xc0, 0x2b, 0xe3, 0x0b, 0xe4, 0x2e, 0x9d, 0x33, 0xf3, 0x04, 0x3a, 0xab, 0x52, 0xf9,
+	0x24, 0xee, 0x1b, 0x43, 0x63, 0xd4, 0xf1, 0xda, 0xda, 0x70, 0x63, 0xeb, 0xc3, 0x80, 0xe6, 0x4b,
+	0x20, 0x16, 0xe6, 0x19, 0x1c, 0xa6, 0x6c, 0x85, 0xdc, 0x0f, 0x99, 0xa2, 0x9a, 0x33, 0x3c, 0x28,
+	0xad, 0x49, 0xe1, 0x14, 0x80, 0xca, 0xf3, 0x0d, 0xd0, 0xd0, 0x40, 0x69, 0x69, 0xe0, 0x1c, 0x8e,
+	0xa8, 0xca, 0xfc, 0x22, 0x07, 0x5f, 0x06, 0xa9, 0xe8, 0xef, 0x0d, 0x8d, 0xd1, 0xbe, 0xd7, 0xa5,
+	0x2a, 0x73, 0xd7, 0x9e, 0x39, 0x80, 0xf6, 0x5c, 0xd1, 0x48, 0x12, 0x46, 0xfb, 0x4d, 0x9d, 0x65,
+	0xad, 0xad, 0x07, 0xe8, 0xb9, 0xd5, 0x12, 0x1e, 0x0a, 0x95, 0xca, 0x1f, 0xa3, 0x9b, 0xc7, 0xd0,
+	0xe2, 0x25, 0x56, 0x65, 0xa9, 0x94, 0x35, 0x86, 0xde, 0x7d, 0xb4, 0xa0, 0x6c, 0x95, 0x62, 0x9c,
+	0x64, 0x48, 0x65, 0x71, 0x28, 0xc7, 0x08, 0xc9, 0x12, 0xf5, 0x94, 0xb6, 0xb7, 0xd1, 0xd7, 0x9f,
+	0x0d, 0x68, 0x3d, 0x05, 0x42, 0x22, 0x37, 0x73, 0xe8, 0x79, 0x98, 0x90, 0xe2, 0x5b, 0xd7, 0x67,
+	0x8e, 0xed, 0x5d, 0x5d, 0xdb, 0x75, 0xd1, 0x83, 0xab, 0xdd, 0xf4, 0xb7, 0x60, 0x1c, 0xba, 0xcf,
+	0x2a, 0xcc, 0x88, 0xac, 0xf6, 0xfd, 0xc5, 0x84, 0xed, 0x86, 0xfe, 0x71, 0xa6, 0x0f, 0x07, 0x8f,
+	0x28, 0xcb, 0x3b, 0xff, 0xdb, 0x7a, 0x17, 0xbb, 0xe9, 0x62, 0xea, 0xe4, 0xee, 0xed, 0xb6, 0x06,
+	0x9d, 0x1a, 0x74, 0x62, 0x22, 0x24, 0x27, 0xa1, 0x92, 0x18, 0xfb, 0xeb, 0x9f, 0x84, 0xb3, 0xfd,
+	0xd6, 0xc3, 0x56, 0xf9, 0xc8, 0x6f, 0xbe, 0x02, 0x00, 0x00, 0xff, 0xff, 0x5c, 0x9c, 0x80, 0x11,
+	0x04, 0x03, 0x00, 0x00,
 }

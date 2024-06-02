@@ -5,10 +5,12 @@ option go_package = "github.com/JuanJoseLL/distributed_integrals/rpc/integrales"
 // Master service provides tasks to workers and receives their computation results.
 service Master {
   // RegisterWorker is called by workers to fetch a new task.
-  rpc RegisterWorker(WorkerInfo) returns (Task);
+  rpc RegisterWorker(WorkerInfo) returns (Acknowledgment);
 
   // SubmitResult is called by workers to submit the results of their computations.
   rpc SubmitResult(IntegralResult) returns (Acknowledgment);
+
+  rpc GetTask(WorkerInfo) returns (Task);
 }
 
 // WorkerInfo may include information about the worker, such as its capabilities or identifier.

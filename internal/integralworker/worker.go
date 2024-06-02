@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
 	"math"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/JuanJoseLL/distributed_integrals/rpc/integrales"
@@ -15,25 +17,51 @@ import (
 func main() {
   
 	client := integrales.NewMasterProtobufClient("http://localhost:8080", &http.Client{})
-	for {
-		task, err := client.RegisterWorker(context.Background(), &integrales.WorkerInfo{})
-    fmt.Println("Task: ", task)
-		if err != nil {
-      fmt.Println("Error: ", err)
-			time.Sleep(time.Second * 10)
-			continue
-		}
-    initialTime := time.Now() 
-		result := calculateIntegral(task)
-    endTme := time.Now()
-    fmt.Println("Time: ", endTme.Sub(initialTime))
-    fmt.Println("Result: ", result)
-		_, err = client.SubmitResult(context.Background(), &integrales.IntegralResult{Result: result})
-		if err != nil {
-      fmt.Println("Error: ", err)
-			
+	ack, err := client.RegisterWorker(context.Background(), &integrales.WorkerInfo{})
+	fmt.Println("Worker registered: ", ack)
+	if err != nil {
+		fmt.Println("Error: ", err)
+		  
+	
+	}
+	user := true
+	reader := bufio.NewReader(os.Stdin)
+	for user {
+		fmt.Println("1 - Start job")
+		fmt.Println("2 - Exit")
+		fmt.Print("Option: ")
+		option, _ := reader.ReadString('\n')
+		option = option[:len(option)-1]
+		switch option {
+		case "1":
+			user = false
+		case "2":
+			return
+		default:
+			fmt.Println("Invalid option")
+
 		}
 	}
+	flag := true	
+	
+	for flag {
+		
+		task, err := client.GetTask(context.Background(), &integrales.WorkerInfo{})
+		if err != nil {
+			fmt.Println("Error: ", err)
+			flag = false
+			break
+		}
+		
+		result := processTask(task)
+		_, err = client.SubmitResult(context.Background(), &integrales.IntegralResult{Result: result.Result})
+
+		if err != nil {
+			fmt.Println("Error: ", err)
+		}
+	}
+
+	fmt.Println("Worker finished")
 }
 
 var customFunctions = map[string]govaluate.ExpressionFunction{
@@ -52,7 +80,7 @@ var customFunctions = map[string]govaluate.ExpressionFunction{
       if len(args) != 1 {
           return nil, fmt.Errorf("sin() expects exactly one argument")
       }
-      switch arg := args[0].(type) {
+      switch arg := args[0].(type) { 
       case float64:
           return math.Sin(arg), nil
       default:
@@ -81,6 +109,17 @@ var customFunctions = map[string]govaluate.ExpressionFunction{
           return nil, fmt.Errorf("tanh() expects a numerical argument")
       }
   },
+}
+
+func processTask( task *integrales.Task) *integrales.IntegralResult {
+	initialTime := time.Now() 
+	result := calculateIntegral(task)
+	endTme := time.Now()
+
+	fmt.Println("Time: ", endTme.Sub(initialTime))
+	fmt.Println("Result: ", result)
+
+	return &integrales.IntegralResult{Result: result}
 }
 
 func calculateIntegral(task *integrales.Task) float64 {
